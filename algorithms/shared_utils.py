@@ -10,9 +10,7 @@ class SharedCounter(object):
 
     def increment(self, elapsed_steps = None):
         self.val.value += 1
-        if ((elapsed_steps is not None) 
-            and ((self.val.value - self.last_step_update_target.value) 
-                >= elapsed_steps)):
+        if ((elapsed_steps is not None) and ((self.val.value - self.last_step_update_target.value) >= elapsed_steps)):
             self.last_step_update_target.value = self.val.value
             return self.val.value, True
         else:
@@ -30,7 +28,7 @@ class Barrier:
     def wait(self):
         with self.counter.lock:
             self.counter.val.value += 1
-            if self.counter.val.value == self.n: 
+            if self.counter.val.value == self.n:
                 self.barrier.release()
         self.barrier.acquire()
         self.barrier.release()
@@ -39,19 +37,19 @@ class SharedVars(object):
     def __init__(self, num_actions, alg_type, opt_type = None, lr = 0):
         # Net
         if alg_type in ['q', 'sarsa']:
-            self.var_shapes = [(8, 8, 4, 16), 
-                                (16), 
-                                (4, 4, 16, 32), 
-                                (32), 
-                                (2592, 256), #(3872, 256) if PADDING = "SAME" 
-                                (256), 
-                                (256, num_actions), 
+            self.var_shapes = [(8, 8, 4, 16),
+                                (16),
+                                (4, 4, 16, 32),
+                                (32),
+                                (2592, 256),
+                                (256),
+                                (256, num_actions),
                                 (num_actions)]
 
             self.size = 0
             for shape in self.var_shapes:
                 self.size += np.prod(shape)
-                
+
             if opt_type == "adam":
                 self.ms = self.malloc_contiguous(self.size)
                 self.vs = self.malloc_contiguous(self.size)
@@ -63,21 +61,21 @@ class SharedVars(object):
 
         else:
             # no lstm
-            self.var_shapes = [(8, 8, 4, 16), 
-                                (16), 
-                                (4, 4, 16, 32), 
-                                (32), 
-                                (2592, 256), #(3872, 256) 
-                                (256), 
-                                (256, num_actions), 
+            self.var_shapes = [(8, 8, 4, 16),
+                                (16),
+                                (4, 4, 16, 32),
+                                (32),
+                                (2592, 256), #(3872, 256)
+                                (256),
+                                (256, num_actions),
                                 (num_actions),
                                 (256, 1),
                                 (1)]
-            
+
             self.size = 0
             for shape in self.var_shapes:
                 self.size += np.prod(shape)
-            
+
             if opt_type == "adam":
                 self.ms = self.malloc_contiguous(self.size)
                 self.vs = self.malloc_contiguous(self.size)
@@ -88,7 +86,7 @@ class SharedVars(object):
                 self.vars = self.malloc_contiguous(self.size)
             else:
                 self.vars = self.malloc_contiguous(self.size)
-            
+
     def malloc_contiguous(self, size, initial_val=None):
         if initial_val is None:
             return RawArray(ctypes.c_float, size)
@@ -99,4 +97,3 @@ class SharedVars(object):
 class SharedFlags(object):
     def __init__(self, num_actors):
         self.updated = RawArray(ctypes.c_int, num_actors)
-            

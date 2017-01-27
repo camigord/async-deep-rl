@@ -50,7 +50,7 @@ def get_num_actions(game):
 class AtariEnvironment(object):
     """
     Small wrapper for gym atari environments.
-    Responsible for preprocessing screens and holding on to a screen buffer 
+    Responsible for preprocessing screens and holding on to a screen buffer
     of size agent_history_length from which environment state
     is constructed.
     """
@@ -71,9 +71,9 @@ class AtariEnvironment(object):
         # Screen buffer of size AGENT_HISTORY_LENGTH to be able
         # to build state arrays of size [1, AGENT_HISTORY_LENGTH, width, height]
         self.state_buffer = deque()
-        
+
         self.visualize = visualize
-        
+
     def get_initial_state(self):
         """
         Resets the atari game, clears the state buffer
@@ -84,8 +84,7 @@ class AtariEnvironment(object):
         x_t = self.env.reset()
         x_t = self.get_preprocessed_frame(x_t)
         s_t = np.dstack((x_t, x_t, x_t, x_t))
-        #s_t = np.stack((x_t, x_t, x_t, x_t), axis = 0)
-        
+
         for i in range(self.agent_history_length-1):
             self.state_buffer.append(x_t)
         return s_t
@@ -107,23 +106,19 @@ class AtariEnvironment(object):
         """
         if self.visualize:
             self.env.render()
-        
+
         action_index = np.argmax(action_index)
-        
+
         x_t1, r_t, terminal, info = self.env.step(self.gym_actions[action_index])
         x_t1 = self.get_preprocessed_frame(x_t1)
 
-        #previous_frames = np.array(self.state_buffer)
-        #s_t1 = np.empty((self.agent_history_length, self.resized_height, self.resized_width))
-        #s_t1[:self.agent_history_length-1, ...] = previous_frames
-        #s_t1[self.agent_history_length-1] = x_t1
         s_t1 = np.empty((self.resized_height, self.resized_width, self.agent_history_length))
         for i in range(self.agent_history_length-1):
-            s_t1[:, :, i] = self.state_buffer[i] 
+            s_t1[:, :, i] = self.state_buffer[i]
         s_t1[:, :, self.agent_history_length-1] = x_t1
 
         # Pop the oldest frame, add the current frame to the queue
         self.state_buffer.popleft()
         self.state_buffer.append(x_t1)
-        
-        return s_t1, r_t, terminal #, info
+
+        return s_t1, r_t, terminal
