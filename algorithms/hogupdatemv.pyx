@@ -14,7 +14,6 @@ cdef extern from "math.h" nogil:
 @cython.nonecheck(False)
 cdef void c_copy(float[::1] dest, float[::1] src, unsigned int src_size) nogil:
     dest[:] = src
-    #memcpy(&dest, &src, src_size * sizeof(float))
 
 def copy(d, s):
     c_copy(d, s, s.size)

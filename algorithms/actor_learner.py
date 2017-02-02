@@ -7,6 +7,7 @@ import pyximport; pyximport.install()
 from hogupdatemv import copy, apply_grads_mom_rmsprop, apply_grads_adam
 import time
 import utils
+from atari_environment import AtariEnvironment
 
 CHECKPOINT_INTERVAL = 500000
 
@@ -14,7 +15,7 @@ logger = logging_utils.getLogger('actor_learner')
 
 def generate_final_epsilon():
     """ Generate lower limit for decaying epsilon. """
-    epsilon = {'limits': [0.1, 0.01, 0.5], 'probs': [0.4, 0.3, 0.3]}
+    epsilon = {'limits': [0.1, 0.01, 0.5], 'probs': [0.5, 0.25, 0.25]}
     return np.random.choice(epsilon['limits'], p=epsilon['probs'])
 
 class ActorLearner(Process):
@@ -57,7 +58,6 @@ class ActorLearner(Process):
         self.b2 = args.b2
         self.e = args.e
 
-        from atari_environment import AtariEnvironment
         self.emulator = AtariEnvironment(args.game, args.visualize)
 
         self.grads_update_steps = args.grads_update_steps
@@ -84,30 +84,29 @@ class ActorLearner(Process):
 
     def run(self):
         self.session = tf.Session()
-#         self.session = tf.Session(config=tf.ConfigProto(
-#              inter_op_parallelism_threads=1,
-#              intra_op_parallelism_threads=1))
 
         if (self.actor_id==0):
-            #Initizlize Tensorboard summaries
+            #Initialize Tensorboard summaries
             self.summary_op = tf.merge_all_summaries()
             self.summary_writer = tf.train.SummaryWriter(
                             "{}/{}".format(self.summ_base_dir, self.actor_id), self.session.graph_def)
 
-            # Initialize network parameters
+            # Initialize network parameters or load parameters from checkpoint (if one exists)
             g_step = utils.restore_vars(self.saver, self.session, self.game, self.alg_type, self.max_local_steps)
             self.global_step.val.value = g_step
             self.last_saving_step = g_step
             logger.debug("T{}: Initializing shared memory...".format(self.actor_id))
+            ''' Only the first process initializes the shared variables '''
             self.init_shared_memory()
 
         # Wait until actor 0 finishes initializing shared memory
         self.barrier.wait()
 
+        '''synchronizing all other processes with current parameters'''
         if self.actor_id > 0:
             logger.debug("T{}: Syncing with shared memory...".format(self.actor_id))
             self.sync_net_with_shared_memory(self.local_network, self.learning_vars)
-            if self.alg_type <> "a3c":
+            if self.alg_type != "a3c":
                 self.sync_net_with_shared_memory(self.target_network, self.target_vars)
 
         # Wait until all actors are ready to start
@@ -117,11 +116,12 @@ class ActorLearner(Process):
         # This is to avoid concurrent updates of parameters as much as possible
         time.sleep(0.1877 * self.actor_id)
 
+
     def save_vars(self):
-        if (self.actor_id == 0 and
-            (self.global_step.value() - self.last_saving_step >= CHECKPOINT_INTERVAL)):
+        if (self.actor_id == 0 andn(self.global_step.value() - self.last_saving_step >= CHECKPOINT_INTERVAL)):
             self.last_saving_step = self.global_step.value()
             utils.save_vars(self.saver, self.session, self.game, self.alg_type, self.max_local_steps, self.last_saving_step)
+
 
     def init_shared_memory(self):
         # Initialize shared memory with tensorflow var values
@@ -129,15 +129,14 @@ class ActorLearner(Process):
         # Merge all param matrices into a single 1-D array
         params = np.hstack([p.reshape(-1) for p in params])
         np.frombuffer(self.learning_vars.vars, ctypes.c_float)[:] = params
-        if self.alg_type <> "a3c":
+        if self.alg_type != "a3c":
             np.frombuffer(self.target_vars.vars, ctypes.c_float)[:] = params
-        #memoryview(self.learning_vars.vars)[:] = params
-        #memoryview(self.target_vars.vars)[:] = memoryview(self.learning_vars.vars)
+
 
     def reduce_thread_epsilon(self):
         """ Linear annealing """
         if self.epsilon > self.final_epsilon:
-                self.epsilon -= (self.initial_epsilon - self.final_epsilon) / self.epsilon_annealing_steps
+            self.epsilon -= (self.initial_epsilon - self.final_epsilon) / self.epsilon_annealing_steps
 
 
     def apply_gradients_to_shared_memory_vars(self, grads):
@@ -191,17 +190,14 @@ class ActorLearner(Process):
     def sync_net_with_shared_memory(self, dest_net, shared_mem_vars):
         feed_dict = {}
         offset = 0
-        params = np.frombuffer(shared_mem_vars.vars,
-                                  ctypes.c_float)
+        params = np.frombuffer(shared_mem_vars.vars,ctypes.c_float)
         for i in xrange(len(dest_net.params)):
             shape = shared_mem_vars.var_shapes[i]
             size = np.prod(shape)
-            feed_dict[dest_net.params_ph[i]] = \
-                    params[offset:offset+size].reshape(shape)
+            feed_dict[dest_net.params_ph[i]] = params[offset:offset+size].reshape(shape)
             offset += size
 
-        self.session.run(dest_net.sync_with_shared_memory,
-                feed_dict=feed_dict)
+        self.session.run(dest_net.sync_with_shared_memory,feed_dict=feed_dict)
 
 
     def decay_lr(self):

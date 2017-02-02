@@ -27,8 +27,7 @@ class QNetwork(Network):
             # executed action. This will make the loss due to non-selected
             # actions to be zero.
             if "target" not in self.name: # Only for the training network
-                output_selected_action = tf.reduce_sum(tf.mul(self.output_layer,
-                                                              self.selected_action_ph), reduction_indices = 1)
+                output_selected_action = tf.reduce_sum(tf.mul(self.output_layer,self.selected_action_ph), reduction_indices = 1)
 
                 diff = tf.sub(self.target_ph, output_selected_action)
 

@@ -14,13 +14,14 @@ import math
 from shared_utils import SharedCounter, SharedVars, SharedFlags, Barrier
 import ctypes
 import argparse
+import atari_environment
 
 from value_based_actor_learner import *
 from policy_based_actor_learner import *
 
 logger = logging_utils.getLogger('main')
 
-
+# Auxiliar function to check logical input parameters
 def bool_arg(string):
     value = string.lower
     if value == 'true':
@@ -30,6 +31,7 @@ def bool_arg(string):
     else:
         raise argparse.ArgumentTypeError("Expected True or False, but got {}".format(string))
 
+# Return a learning rate if value of 0 is given
 def get_learning_rate(low, high):
     """ Return LogUniform(low, high) learning rate. """
     lr = math.exp(random.uniform(math.log(low), math.log(high)))
@@ -39,11 +41,11 @@ def main(args):
     logger.debug("CONFIGURATION: {}".format(args))
 
     """ Set up the graph, the agents, and run the agents in parallel. """
-    import atari_environment
     num_actions = atari_environment.get_num_actions(args.game)
 
     args.summ_base_dir = "/tmp/summary_logs/{}/{}".format(args.game, time.time())
 
+    ''' Creating a Learner according to the desired method'''
     if args.alg_type == 'q':
         if args.max_local_steps > 1:
             Learner = NStepQLearner
@@ -58,6 +60,8 @@ def main(args):
     else:
         Learner = A3CLearner
 
+    ''' Creating all shared variables'''
+    # Global counter
     T = SharedCounter(0)
     args.learning_vars = SharedVars(num_actions, args.alg_type)
     if args.opt_mode == "shared":
@@ -72,12 +76,14 @@ def main(args):
     args.global_step = T
     args.num_actions = num_actions
 
+    '''Crating all the processes and running them'''
     if (args.visualize == 2): args.visualize = 0
     actor_learners = []
     for i in xrange(args.num_actor_learners):
         if (args.visualize == 2) and (i == args.num_actor_learners - 1):
             args.args.visualize = 1
 
+        # Process ID
         args.actor_id = i
 
         rng = np.random.RandomState(int(time.time()))

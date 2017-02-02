@@ -19,6 +19,7 @@ class SharedCounter(object):
     def value(self):
         return self.val.value
 
+'''
 class Barrier:
     def __init__(self, n):
         self.n = n
@@ -32,6 +33,24 @@ class Barrier:
                 self.barrier.release()
         self.barrier.acquire()
         self.barrier.release()
+'''
+
+''' Fixing some logic problems with previous version'''
+class Barrier:
+    def __init__(self, n):
+        self.n = n
+        self.counter = SharedCounter(0)
+        self.barrier = Semaphore(0)
+
+    def wait(self,name):
+        with self.counter.lock:
+            self.counter.val.value += 1
+            if self.counter.val.value % self.n == 0:
+                for i in range(self.n-1):
+                    self.barrier.release()
+                return
+
+        self.barrier.acquire()
 
 class SharedVars(object):
     def __init__(self, num_actions, alg_type, opt_type = None, lr = 0):
@@ -45,20 +64,6 @@ class SharedVars(object):
                                 (256),
                                 (256, num_actions),
                                 (num_actions)]
-
-            self.size = 0
-            for shape in self.var_shapes:
-                self.size += np.prod(shape)
-
-            if opt_type == "adam":
-                self.ms = self.malloc_contiguous(self.size)
-                self.vs = self.malloc_contiguous(self.size)
-                self.lr = RawValue(ctypes.c_float, lr)
-            elif opt_type == "rmsprop":
-                self.vars = self.malloc_contiguous(self.size, np.ones(self.size, dtype=np.float))
-            else: #momentum
-                self.vars = self.malloc_contiguous(self.size)
-
         else:
             # no lstm
             self.var_shapes = [(8, 8, 4, 16),
@@ -72,20 +77,20 @@ class SharedVars(object):
                                 (256, 1),
                                 (1)]
 
-            self.size = 0
-            for shape in self.var_shapes:
-                self.size += np.prod(shape)
+        self.size = 0
+        for shape in self.var_shapes:
+            self.size += np.prod(shape)
 
-            if opt_type == "adam":
-                self.ms = self.malloc_contiguous(self.size)
-                self.vs = self.malloc_contiguous(self.size)
-                self.lr = RawValue(ctypes.c_float, lr)
-            if opt_type == "rmsprop":
-                self.vars = self.malloc_contiguous(self.size, np.ones(self.size, dtype=np.float))
-            elif opt_type == "momentum":
-                self.vars = self.malloc_contiguous(self.size)
-            else:
-                self.vars = self.malloc_contiguous(self.size)
+        if opt_type == "adam":
+            self.ms = self.malloc_contiguous(self.size)
+            self.vs = self.malloc_contiguous(self.size)
+            self.lr = RawValue(ctypes.c_float, lr)
+        if opt_type == "rmsprop":
+            self.vars = self.malloc_contiguous(self.size, np.ones(self.size, dtype=np.float))
+        elif opt_type == "momentum":
+            self.vars = self.malloc_contiguous(self.size)
+        else:
+            self.vars = self.malloc_contiguous(self.size)
 
     def malloc_contiguous(self, size, initial_val=None):
         if initial_val is None:

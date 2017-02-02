@@ -1,3 +1,9 @@
+'''
+This file sets up the logging module and allow us to write debug messages into
+a file and the console. For more information about how to set up a logger and
+how to modify this file check: 'https://docs.python.org/2.7/howto/logging.html#logging-basic-tutorial'
+'''
+
 import logging
 import logging.config
 
