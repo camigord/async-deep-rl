@@ -42,7 +42,7 @@ class Barrier:
         self.counter = SharedCounter(0)
         self.barrier = Semaphore(0)
 
-    def wait(self,name):
+    def wait(self):
         with self.counter.lock:
             self.counter.val.value += 1
             if self.counter.val.value % self.n == 0:

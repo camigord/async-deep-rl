@@ -118,7 +118,7 @@ class ActorLearner(Process):
 
 
     def save_vars(self):
-        if (self.actor_id == 0 andn(self.global_step.value() - self.last_saving_step >= CHECKPOINT_INTERVAL)):
+        if (self.actor_id == 0 and (self.global_step.value() - self.last_saving_step >= CHECKPOINT_INTERVAL)):
             self.last_saving_step = self.global_step.value()
             utils.save_vars(self.saver, self.session, self.game, self.alg_type, self.max_local_steps, self.last_saving_step)
 

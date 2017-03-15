@@ -4,6 +4,8 @@ from __future__ import print_function
 
 import random
 import sys
+sys.path.remove('/home/camilog/tensorflow/_python_build')
+
 import os
 import numpy as np
 from multiprocessing import Process, RawArray
